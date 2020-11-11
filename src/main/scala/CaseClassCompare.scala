@@ -4,12 +4,13 @@ case class Baz(c: Int, f: Foo)
 
 @main def launcher: Unit = 
     val a = Baz(2, Foo("a1", "b1"))
-    val b = Baz(3, Foo("a2", "b2"))
-    println(compare(a, b))
+    val b = Baz(2, Foo("a2", "b2"))
+    val h = compare(a, b).head
+    println(diffToClass(h))
 
 enum Diff:
-    case ZeroDepthDiff(v: String)
-    case MultiDepthDiff(n:String, v: List[Diff])
+    case ZeroDepthDiff(field: String, clazz: String, message: String)
+    case MultiDepthDiff(field: String, clazz: String, diff: List[Diff])
 
 import Diff._
 
@@ -35,8 +36,18 @@ def compare[T <: Product](a: T, b: T): List[Diff] =
         case ((_, p1), (_, p2)) => p1 != p2
     } map {
         case ((n, p1), (_, p2)) if p1.isInstanceOf[Product] => 
-            MultiDepthDiff(s"Difference in value of $n", compare(p1.asInstanceOf[Product], p2.asInstanceOf[Product]))
+            MultiDepthDiff(n, p1.getClass.getSimpleName, compare(p1.asInstanceOf[Product], p2.asInstanceOf[Product]))
         case ((n, p1), (_, p2)) =>
-            ZeroDepthDiff(s"Difference in the value of $n. Left = $p1, Right = $p2")
+            ZeroDepthDiff(n, p1.getClass.getSimpleName ,s"Left = $p1, Right = $p2")
     }
     result.toList
+
+def spacesAndString(n: Int, s: String): String = 
+    (1 to n).foldLeft("")((acc, _) => acc + " ") + s
+//get the class name that is causing the 
+def diffToClass(diff: Diff, width: Int = 0): String = 
+    diff match 
+        case ZeroDepthDiff(field, clazz, message) => 
+            spacesAndString(width, s"$field:$clazz") + "\n" + spacesAndString(width + 1, message)
+        case MultiDepthDiff(field, clazz, d) => 
+            spacesAndString(width, s"$field:$clazz") + "\n" + diffToClass(d.head, width + 1)
